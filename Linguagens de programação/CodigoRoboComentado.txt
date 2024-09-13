@@ -1,0 +1,52 @@
+function sysCall_init()                                     -- Chama a funcao inicial
+    local robot=sim.getObject('.')                          -- Pega os objetos robo
+    local obstacles=sim.createCollection(0)            	    -- Cria a coleção de obstaculos
+    sim.addItemToCollection(obstacles,sim.handle_all,-1,0)  -- Realiza a deteccao de ostaculos
+    sim.addItemToCollection(obstacles,sim.handle_tree,robot,1)          -- Realiza a deteccao de obstaculos 
+    usensors={}								-- Cria uma lista de sensores						
+    for i=1,16,1 do							-- Para i=1 ate 16 fazer
+        usensors[i]=sim.getObject("./ultrasonicSensor",{index=i-1})	-- Pega o sensor ultrasonico e adiciona na listta usensors
+        sim.setObjectInt32Param(usensors[i],sim.proxintparam_entity_to_detect,obstacles)   --Faz o sensor detectar obstaculos
+    end
+    
+    motorLeft=sim.getObject("./leftMotor")        -- Declara o motor da esquerda 
+    motorRight=sim.getObject("./rightMotor")      -- Declara o motor da direita 
+    noDetectionDist=0.5                           -- Declara a distancia 
+    maxDetectionDist=0.2                          --Declara o maximo de distancia para chegar proximo a parede
+    detect={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}	  -- Declara detecta
+    braitenbergL={-1,-2,-3,-4,-4.2,-4.4,-4.8,-4.9, 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0}          -- Controla a compensacao do motor esquerdo
+    braitenbergR={-5,-5.2,-5.4,-5.6,-5.8,-5.10,-5.12,6, 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)     -- Controla a compensacao do motor direito
+    v0=10                                       -- Velocidade do robo
+end
+-- This is a very simple EXAMPLE navigation program, which avoids obstacles using the Braitenberg algorithm
+
+
+function sysCall_cleanup() 			--Declara a funcao cleanup
+ 
+end 
+
+function sysCall_actuation() 			--Declara a funcao actuation
+    for i=1,16,1 do				-- Para i=1 ate 16 fazer
+        res,dist=sim.readProximitySensor(usensors[i])	--Define a procimidade dos objetos pelo sensor
+        if (res>0) and (dist<noDetectionDist) then	--Se res>0 e a distancia for menor que a distancia nao detectada do sensor, então:
+            if (dist<maxDetectionDist) then		--Se distancia for menor que a deteccao maxima do sensor
+                dist=maxDetectionDist			--Define a distancia como maxima
+            end
+            detect[i]=1-((dist-maxDetectionDist)/(noDetectionDist-maxDetectionDist))		--
+        else
+            detect[i]=0										-- Adiciona 0 a posicao i da lista detect
+        end
+    end
+    
+    vLeft=v0				-- Velocidade do motor esquerdo e a velocidade do robo declarada anteriromente
+    vRight=v0				-- Velocidade do motor direito e a velocidade do robo declarada anteriromente
+    
+    for i=1,16,1 do					--De i=1 ate 16 fazer 
+	--Randomiza o movimento do robo
+        vLeft=vLeft+braitenbergL[i]*detect[i]		--Define a velocidade da esquerda de acordo com a distancia que foi detectada ate o objeto
+        vRight=vRight+braitenbergR[i]*detect[i]		--Define a velocidade da direita de acordo com a distancia que foi detectada ate o objeto
+    end
+    
+    sim.setJointTargetVelocity(motorLeft,vLeft)         -- Seta as velocidades linear e angular do motor esquerdo
+    sim.setJointTargetVelocity(motorRight,vRight)	-- Seta as velocidades linear e angular do motor direito
+end 
